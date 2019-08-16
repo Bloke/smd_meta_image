@@ -17,7 +17,7 @@ $plugin['name'] = 'smd_meta_image';
 // 1 = Plugin help is in raw HTML.  Not recommended.
 # $plugin['allow_html_help'] = 1;
 
-$plugin['version'] = '0.20';
+$plugin['version'] = '0.3.0';
 $plugin['author'] = 'Stef Dawson';
 $plugin['author_uri'] = 'https://stefdawson.com/';
 $plugin['description'] = 'A Textpattern CMS plugin for importing images using IPTC metadata to populate content.';
@@ -345,8 +345,10 @@ class smd_meta_image
                         $section = get_pref('default_section');
                     }
 
+                    $status = get_pref('default_publish_status', STATUS_LIVE);
+
 //                    $artpayload[] = "Section = '" . doSlash($section) . "'";
-                    $artpayload[] = "Status = '" . doSlash(get_pref('default_publish_status', STATUS_LIVE)) . "'";
+//                    $artpayload[] = "Status = '" . doSlash($status) . "'";
                     $artpayload[] = "Image = '" . $imgid . "'";
                     $artpayload[] = "AuthorID = '$user'";
                     $artpayload[] = "LastModID = '$user'";
@@ -354,7 +356,15 @@ class smd_meta_image
                     $artpayload[] = "feed_time = NOW()";
                     $artpayload[] = "uid = '" . md5(uniqid(rand(), true)) . "'";
 
-                    $this->upsertArticle(implode(',', $artpayload), $artmatch, array('Posted' => $artposted, 'Section' => $section));
+                    $this->upsertArticle(
+                        implode(',', $artpayload),
+                        $artmatch,
+                        array(
+                            'Posted'  => $artposted,
+                            'Section' => $section,
+                            'Status'  => $status,
+                        )
+                    );
                 }
             }
         }
@@ -404,6 +414,7 @@ class smd_meta_image
                         $data = ($data ? doQuote(doSlash($data)) : 'NOW()');
                         break;
                     case 'Section':
+                    case 'Status':
                         $data = doQuote(doSlash($data));
                         break;
                 }
@@ -780,7 +791,7 @@ If the Section is set in the plugin's general options, the nominated Section wil
 
 h4.Status
 
-The value from your 'Default publication status' pref is used. The status is updated when replacing images so if you have changed this preference value, your article status will change.
+The value from your 'Default publication status' pref is used. The status is only set when images are first uploaded. It is _not_ updated when replacing images.
 
 h4. Keywords
 
@@ -837,7 +848,6 @@ h2. Caveats / known issues / other stuff
 
 h2. To do
 
-* Fix the Status mapping so it is only set once on article creation, not update.
 * Introduce custom (freeform) mappings.
 * Introduce article behaviour pref:
 ** No article creation
