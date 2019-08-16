@@ -223,6 +223,7 @@ class smd_meta_image
         $user = doSlash($txp_user);
         $img = safe_row('*', 'txp_image', $imgmatch);
         $imgCatFallback = gps('category');
+        $artCatParent = get_pref($this->plugin_event . '_cat_parent', '');
 
         if ($img) {
             $imgpayload = array();
@@ -236,13 +237,14 @@ class smd_meta_image
                 foreach ($plugPrefs as $prefKey => $prefObj) {
                     if ($prefObj['event'] === $this->plugin_event . '.' . $this->plugin_event . '_map_01img') {
                         $imgVal = get_pref($prefKey, '');
-                        $catData = array(
-                            'type'   => 'image',
-                            'parent' => $imgCatFallback,
-                        );
 
                         switch ($prefKey) {
                             case $this->plugin_event . '_img_category':
+                                $catData = array(
+                                    'type'   => 'image',
+                                    'parent' => $imgCatFallback,
+                                );
+
                                 if ($imgVal && ($val = $this->replaceIptc($imgVal, $iptc, $catData))) {
                                     $imgpayload[] = "category = '".doSlash($val)."'";
                                 } elseif ($imgCatFallback) {
@@ -253,7 +255,7 @@ class smd_meta_image
                             case $this->plugin_event . '_img_alt':
                             case $this->plugin_event . '_img_caption':
                             case $this->plugin_event . '_img_name':
-                                if ($imgVal && ($val = $this->replaceIptc($imgVal, $iptc, $catData))) {
+                                if ($imgVal && ($val = $this->replaceIptc($imgVal, $iptc))) {
                                     if ($val) {
                                         $safeVal = doSlash($val);
                                         $safeKey = substr(strrchr($prefKey, '_'), 1);
@@ -266,15 +268,15 @@ class smd_meta_image
                     } elseif ($prefObj['event'] === $this->plugin_event . '.' . $this->plugin_event . '_map_02art') {
                         $imgVal = get_pref($prefKey, '');
                         $safeKey = preg_replace('/'.$this->plugin_event.'_art_/', '', $prefKey);
-                        $artCatParent = get_pref($this->plugin_event . '_cat_parent', '');
-                        $catData = array(
-                            'type'   => 'article',
-                            'parent' => $artCatParent,
-                        );
 
                         switch ($prefKey) {
                             case $this->plugin_event . '_art_category1':
                             case $this->plugin_event . '_art_category2':
+                                $catData = array(
+                                    'type'   => 'article',
+                                    'parent' => $artCatParent,
+                                );
+
                                 if ($imgVal && ($val = $this->replaceIptc($imgVal, $iptc, $catData))) {
                                     if ($val) {
                                         $artpayload[] = "$safeKey = '".doSlash($val)."'";
@@ -283,7 +285,7 @@ class smd_meta_image
 
                                 break;
                             case $this->plugin_event . '_art_title':
-                                if ($imgVal && ($val = $this->replaceIptc($imgVal, $iptc, $catData))) {
+                                if ($imgVal && ($val = $this->replaceIptc($imgVal, $iptc))) {
                                     $safeVal = doSlash($val);
 
                                     if ($safeVal) {
@@ -294,7 +296,7 @@ class smd_meta_image
 
                                 break;
                             case $this->plugin_event . '_art_posted':
-                                if ($imgVal && ($val = $this->replaceIptc($imgVal, $iptc, $catData))) {
+                                if ($imgVal && ($val = $this->replaceIptc($imgVal, $iptc))) {
                                     if ($val) {
                                         try {
                                             $date = new DateTime($val);
@@ -309,7 +311,7 @@ class smd_meta_image
                                 break;
                             case $this->plugin_event . '_art_body':
                             case $this->plugin_event . '_art_excerpt':
-                                if ($imgVal && ($val = $this->replaceIptc($imgVal, $iptc, $catData))) {
+                                if ($imgVal && ($val = $this->replaceIptc($imgVal, $iptc))) {
                                     if ($val) {
                                         $safeVal = doSlash($val);
                                         $safeKeyHtml = $safeKey .'_html';
@@ -320,7 +322,7 @@ class smd_meta_image
 
                                 break;
                             default:
-                                if ($imgVal && ($val = $this->replaceIptc($imgVal, $iptc, $catData))) {
+                                if ($imgVal && ($val = $this->replaceIptc($imgVal, $iptc))) {
                                     if ($val) {
                                         $safeVal = doSlash($val);
                                         $artpayload[] = "$safeKey = '$safeVal'";
@@ -332,7 +334,7 @@ class smd_meta_image
                     }
                 }
 
-                // Update row with new metadata.
+                // Update image row with new metadata.
                 if ($imgpayload) {
                     safe_update('txp_image', implode(',', $imgpayload), $imgmatch);
                 }
@@ -347,8 +349,6 @@ class smd_meta_image
 
                     $status = get_pref('default_publish_status', STATUS_LIVE);
 
-//                    $artpayload[] = "Section = '" . doSlash($section) . "'";
-//                    $artpayload[] = "Status = '" . doSlash($status) . "'";
                     $artpayload[] = "Image = '" . $imgid . "'";
                     $artpayload[] = "AuthorID = '$user'";
                     $artpayload[] = "LastModID = '$user'";
@@ -427,12 +427,12 @@ class smd_meta_image
     }
 
     /**
-     * [replaceIptc description]
+     * Replace a string containing IPTC {#nnn} codes with its corresponding data
      *
-     * @param  string $val    The string in which replacements may be needed
-     * @param  array  $iptc   The IPTC array that contains replacement mapping keys and their values
-     * @param  int    $offset Return the $offset'th value in the list
-     * @return [type]         [description]
+     * @param  string $val     The string in which replacements may be needed
+     * @param  array  $iptc    The IPTC array that contains replacement mapping keys and their values
+     * @param  array  $catData If supplied, will _only_ use the first category in a list, creating it if necessary
+     * @return string          The string with its replacements made
      */
     protected function replaceIptc($val, $iptc, $catData = array())
     {
@@ -452,11 +452,10 @@ class smd_meta_image
                 if (empty($iptc[$toReplace])) {
                     $replacement = '';
                 } else {
-                    $firstItem = $iptc[$toReplace][0];
-
                     // Create category out of _first_ element if necessary.
                     // @todo: In future, relax/remove this if cats become unlimited/tags.
-                    if (in_array($toReplace, $catTypes)) {
+                    if ($catData && in_array($toReplace, $catTypes)) {
+                        $firstItem = $iptc[$toReplace][0];
                         $replacement = $this->createCategory($firstItem, $catData['type'], $catData['parent']);
                     } else {
                         if (in_array($toReplace, $arrayTypes)) {
@@ -512,9 +511,7 @@ class smd_meta_image
     }
 
     /**
-     * Prefs panel
-     *
-     * @return HTML
+     * Prefs panel - create plugin key-values if they don't exist
      */
     public function prefs() {
         $plugPrefs = $this->prefList();
@@ -530,7 +527,7 @@ class smd_meta_image
     /**
      * Fetch the main (core) supported IPTC keys.
      *
-     * Note the following are deprecated in the IIM spec but
+     * Note the following are deprecated in the IIM spec but are
      * still supported in the plugin:
      *  -> 2#010
      *  -> 2#015
@@ -569,7 +566,7 @@ class smd_meta_image
     }
 
     /**
-     * Create a select list of IPTC keys.
+     * Create a select list of IPTC keys
      *
      * @param string $name  The select name
      * @param string $value The selected value
@@ -585,7 +582,7 @@ class smd_meta_image
     }
 
     /**
-     * Render article Sections pref.
+     * Render article Sections pref
      *
      * @param  string $key The preference key being displayed
      * @param  string $val The current preference value
@@ -604,7 +601,7 @@ class smd_meta_image
     }
 
     /**
-     * Render category tree pref.
+     * Render category tree pref
      *
      * @param  string $key The preference key being displayed
      * @param  string $val The current preference value
@@ -616,7 +613,7 @@ class smd_meta_image
     }
 
     /**
-     * Render a list of mappable IPTC field options.
+     * Render a list of mappable IPTC field options
      *
      * @param  string $key The preference key being displayed
      * @param  string $val The current preference value
@@ -640,7 +637,7 @@ class smd_meta_image
     }
 
     /**
-     * Settings for the plugin.
+     * Settings for the plugin
      *
      * @return array  Preference set
      */
@@ -720,7 +717,6 @@ class smd_meta_image
 
         return $plugPrefs;
     }
-
 }
 # --- END PLUGIN CODE ---
 if (0) {
@@ -812,20 +808,28 @@ This is always set on insert and update of its corresponding image. The current 
 
 h3. Category assignment
 
-Categories are a special case. If you assign one of the category fields (currently Subject Reference, Category or Subcategory) to a Textpattern field then it behaves like this:
+Categories are treated differently depending on where (to which field) they are assigned. IPTC category fields are:
+
+* (2#012) Subject Reference
+* (2#015) Category
+* (2#020) Subcategory
+
+They will be treated like regular fields if they are assigned to any non-Category Textpattern field (e.g. custom fields). In these cases, single category values will be inserted as regular fields and category lists will be inserted as a comma-separated list.
+
+If, however, you assign one of the category fields to a Textpattern Category field, it behaves like this:
 
 h4. Image categories
 
 * If the category (or _first category_ if the nominated IPTC field represents a list) does not exist, it will be created as an image category.
 * If you have specified an existing Textpattern category in the Upload form, that will be used as the _parent_ of any created categories.
-* If any categories already exist, no changes will be made to them.
+* If any category already exists, no changes will be made to it.
 * If the nominated IPTC field is empty, the category used in the upload form will be assigned to the image as fallback.
 * If that's empty, no category will be assigned to the image.
 
 h4. Article categories
 
 * If the category (or _first category_ if the nominated IPTC field represents a list) does not exist, it will be created as an article category.
-* New categories read from image data will be created beneath the parent category set in the plugin's general options above. If the parent category is unset, new categories are assigned to the article root.
+* New categories read from image data will be created beneath the parent category set in the plugin's general options. If the parent category is unset, new categories are assigned to the article root.
 * If a category already exists, its definition and parent remain the same - no changes are made, only category (re)assignment to the article is performed.
 
 h2. Usage
@@ -853,7 +857,6 @@ h2. To do
 ** No article creation
 ** One article per image
 ** One article per upload
-* Decouple category from IPTC again so that it only applies the 'first category' rule if used in a Txp category field. Use in any other fields (e.g. custom fields) will import the full comma-separated list.
 
 # --- END PLUGIN HELP ---
 -->
