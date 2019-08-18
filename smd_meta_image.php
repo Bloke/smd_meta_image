@@ -17,7 +17,7 @@ $plugin['name'] = 'smd_meta_image';
 // 1 = Plugin help is in raw HTML.  Not recommended.
 # $plugin['allow_html_help'] = 1;
 
-$plugin['version'] = '0.3.0';
+$plugin['version'] = '0.4.0';
 $plugin['author'] = 'Stef Dawson';
 $plugin['author_uri'] = 'https://stefdawson.com/';
 $plugin['description'] = 'A Textpattern CMS plugin for importing images using IPTC metadata to populate content.';
@@ -60,6 +60,7 @@ $plugin['textpack'] = <<<EOT
 smd_meta_image_read_iptc => Parse IPTC data
 #@prefs
 smd_meta_image => Meta Image Import
+smd_meta_image_cat_none => Disable category creation
 smd_meta_image_cat_parent => Article parent category
 smd_meta_image_choices => General options
 smd_meta_image_map_01img => Image mapping
@@ -191,11 +192,11 @@ class smd_meta_image
     }
 
     /**
-     * Overwrites image metadata from IPTC headers.
+     * Overwrites image metadata from IPTC headers, optionally creating article(s).
      *
      * @param string $evt Textpattern event (panel)
      * @param string $stp Textpattern step (action)
-     * @param int    $id  Image to operatie upon
+     * @param int    $id  Image to operate upon
      */
     public function update_image($evt, $stp, $id)
     {
@@ -493,7 +494,7 @@ class smd_meta_image
             return $exists;
         }
 
-        if (!$name) {
+        if (!$name || ($parent === $this->plugin_event . '_cat_none')) {
             return '';
         }
 
@@ -609,7 +610,16 @@ class smd_meta_image
      */
     public function catTree($key, $val)
     {
-        return treeSelectInput($key, getTree('root', 'article'), $val, $key);
+        $noVal = $this->plugin_event . '_cat_none';
+        $options[] = array(
+            'name'     => $noVal,
+            'title'    => gTxt($noVal),
+            'level'    => 0,
+        );
+
+        $options += getTree('root', 'article');
+
+        return treeSelectInput($key, $options, $val, $key);
     }
 
     /**
@@ -673,7 +683,7 @@ class smd_meta_image
                 'html'       => $this->plugin_event . '->catTree',
                 'type'       => PREF_PLUGIN,
                 'position'   => 10,
-                'default'    => '',
+                'default'    => $this->plugin_event.'_cat_none',
                 'event'      => $this->plugin_event . '.'. $this->plugin_event . '_choices',
                 'visibility' => PREF_GLOBAL,
             );
@@ -731,6 +741,7 @@ h2. Features
 
 * Map image IPTC fields to Textpattern image/article fields.
 * Articles may be created automatically based on embedded IPTC data.
+* Article/image categories may be created automatically if required.
 * Upload/replace images to update Textpattern metadata.
 
 h2. Installation / Uninstallation
@@ -749,7 +760,7 @@ h3. General options
 
 *Article parent category*
 
-The parent category in your current article tree where all _new_ categories read in from the IPTC data will be created.
+The parent category in your current article tree where all _new_ categories read in from the IPTC data will be created. If set to _Disable category creation_ then no categories will be created and assignment will only occur for those categories that already exist. If set to the empty (blank) option, new categories will be created at the root (top level).
 
 *Section*
 
@@ -828,7 +839,7 @@ h4. Image categories
 
 h4. Article categories
 
-* If the category (or _first category_ if the nominated IPTC field represents a list) does not exist, it will be created as an article category.
+* If the category (or _first category_ if the nominated IPTC field represents a list) does not exist, it will be created as an article category as long as the parent category is not set to _Disable category creation_.
 * New categories read from image data will be created beneath the parent category set in the plugin's general options. If the parent category is unset, new categories are assigned to the article root.
 * If a category already exists, its definition and parent remain the same - no changes are made, only category (re)assignment to the article is performed.
 
