@@ -17,7 +17,7 @@ $plugin['name'] = 'smd_meta_image';
 // 1 = Plugin help is in raw HTML.  Not recommended.
 # $plugin['allow_html_help'] = 1;
 
-$plugin['version'] = '0.4.0';
+$plugin['version'] = '0.5.0';
 $plugin['author'] = 'Stef Dawson';
 $plugin['author_uri'] = 'https://stefdawson.com/';
 $plugin['description'] = 'A Textpattern CMS plugin for importing images using IPTC metadata to populate content.';
@@ -63,6 +63,7 @@ smd_meta_image => Meta Image Import
 smd_meta_image_cat_none => Disable category creation
 smd_meta_image_cat_parent => Article parent category
 smd_meta_image_choices => General options
+smd_meta_image_custom => Custom value
 smd_meta_image_map_01img => Image mapping
 smd_meta_image_map_02art => Article mapping
 smd_meta_image_img_alt => Alt text
@@ -130,6 +131,7 @@ class smd_meta_image
         register_callback(array($this, 'render_ui'), 'image_ui', 'upload_form');
         register_callback(array($this, 'inject_head'), 'admin_side', 'head_end');
         register_callback(array($this, 'update_image'), 'image_uploaded');
+        register_callback(array($this, 'fetch_custom_val'), $this->plugin_event, 'fetch_custom_val');
     }
 
     /**
@@ -160,10 +162,42 @@ class smd_meta_image
     {
         global $event;
 
-        // Also add fallback to load jQuery UI in case we're on < Txp 4.6.
         if ($event === 'image') {
             echo '<style>
 </style>';
+        }
+
+        if ($event === 'prefs') {
+            echo script_js(<<<EOJS
+jQuery(function() {
+    jQuery('.smd_meta_image_map').find('select').on('change', function(ev) {
+        var me = $(this);
+        me.closest('.smd_meta_image_map').find('.smd_meta_image_custom').remove();
+
+        if (me.val() === 'custom') {
+            var name = me.attr('name');
+            var spinner = jQuery('<span />').addClass('spinner');
+
+            // Show feedback while processing.
+            me.addClass('busy').attr('disabled', true).after(spinner);
+
+            sendAsyncEvent({
+                event : '{$this->plugin_event}',
+                step  : 'fetch_custom_val',
+                key   : name
+            }, function() {}, 'json')
+            .done(function (data, textStatus, jqXHR) {
+                me.after($('<input class="smd_meta_image_custom" name="' + name + '" value="' + data.value + '" />'));
+            })
+            .always(function () {
+                me.removeClass('busy').removeAttr('disabled');
+                spinner.remove();
+            });
+        }
+    }).change();
+})
+EOJS
+            );
         }
 
         return;
@@ -469,11 +503,9 @@ class smd_meta_image
 
                 $val = str_replace($match[0][$idx], $replacement, $val);
             }
-
-            return $val;
         }
 
-        return '';
+        return $val;
     }
 
     /**
@@ -523,6 +555,21 @@ class smd_meta_image
 
             }
         }
+    }
+
+    /**
+     * Return the pref value for the given key (POSTed)
+     *
+     * @param  string $evt Textpattern event
+     * @param  string $stp Textpattern step (action)
+     * @return array       'value': preference data for the given key
+     */
+    public function fetch_custom_val($evt, $stp)
+    {
+        $key = assert_string(ps('key'));
+        $val = get_pref($key, '');
+
+        send_json_response(array('value' => $val));
     }
 
     /**
@@ -579,7 +626,7 @@ class smd_meta_image
     {
         $options = $this->getIptcMap() + array('custom' => gTxt('smd_meta_image_custom'));
 
-        return selectInput($name, $options, $value, true, false, $name);
+        return '<div class="smd_meta_image_map">'.selectInput($name, $options, $value, true, false, $name) . '</div>';
     }
 
     /**
@@ -633,12 +680,17 @@ class smd_meta_image
     {
         $plugPrefs = $this->prefList();
         $obj = $plugPrefs[$key];
+        $allOpts = $this->getIptcMap();
 
         // Get current value from prefs.
         $current = get_pref($key, null);
 
         if ($current === null) {
             $val = $obj['default'];
+        } elseif ($current === '') {
+            $val = '';
+        } elseif (!array_key_exists($current, $allOpts)) {
+            $val = 'custom';
         }
 
         $thisID = $obj['event'];
@@ -796,7 +848,7 @@ This is only set on article creation, _not_ altered when an image is replaced.
 
 If the Section is set in the plugin's general options, the nominated Section will be used when creating articles from each uploaded image. If the Section is left empty in the plugin's general options, the current _Default Publishing Section_ (as defined on the Sections panel) will be used when creating articles.
 
-h4.Status
+h4. Status
 
 The value from your 'Default publication status' pref is used. The status is only set when images are first uploaded. It is _not_ updated when replacing images.
 
@@ -843,6 +895,14 @@ h4. Article categories
 * New categories read from image data will be created beneath the parent category set in the plugin's general options. If the parent category is unset, new categories are assigned to the article root.
 * If a category already exists, its definition and parent remain the same - no changes are made, only category (re)assignment to the article is performed.
 
+h3. Custom values
+
+If you wish to combine field data or make your own content to be inserted into a field, choose the last _Custom value_ option from the configuration item list for any corresponding Textpattern field. A new input box will appear below the selector for you to type in the text you wish to be inserted into that field.
+
+If you wish to insert a particular field code within your custom text, specify its name in curly braces. For example: @{2#004}@ is Genre, @{2#090}@ is City and @{2#105}@ is Headline. See "Section 6 of the IPTC Spec":https://www.iptc.org/std/photometadata/specification/IPTC-PhotoMetadata#metadata-properties and look at the _IIM Spec_ values to get the codes. Simply pad the values to the right of the colon with zeroes to three digits and replace the colon with a hash (#) sign. So, for example, 'Creator' has an IIM Spec designator @2:80@. To import this value into your nominated field, use @{2#080}@.
+
+If you're unsure of the values, either a) inspect the browser page source code of the prefs panel and look at the values in one of the configuration item select lists, or b) check the plugin code - there's a function called @getIptcMap()@ which lists the main supported data fields and their values.
+
 h2. Usage
 
 # Visit the Images panel.
@@ -855,19 +915,10 @@ Images will be uploaded, and have their metadata set according to the mapping ru
 
 h2. Caveats / known issues / other stuff
 
-* The 'custom' option at the end of the IPTC lists don't work yet.
 * The custom field names in the Prefs panel are not translated and do not read the values for their names as defined in the CF prefs.
 * The 'Parse IPTC' checkbox is remembered after you have performed an upload. The same state is applied for new uploads and for replacements - it uses the same pref value.
 * The plugin plays nicely with smd_thumbnail.
 * Only a loose link between the image and its article is enforced after creation. If the Title remains unchanged and the Title mapping field is unchanged, updating an image will update the corresponding article data (with the exceptions noted above). But if you delete an image or delete an article, they are treated independently.
-
-h2. To do
-
-* Introduce custom (freeform) mappings.
-* Introduce article behaviour pref:
-** No article creation
-** One article per image
-** One article per upload
 
 # --- END PLUGIN HELP ---
 -->
