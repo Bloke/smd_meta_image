@@ -17,7 +17,7 @@ $plugin['name'] = 'smd_meta_image';
 // 1 = Plugin help is in raw HTML.  Not recommended.
 # $plugin['allow_html_help'] = 1;
 
-$plugin['version'] = '0.5.0';
+$plugin['version'] = '0.5.1';
 $plugin['author'] = 'Stef Dawson';
 $plugin['author_uri'] = 'https://stefdawson.com/';
 $plugin['description'] = 'A Textpattern CMS plugin for importing images using IPTC metadata to populate content.';
@@ -484,6 +484,14 @@ EOJS
 
         if (!empty($match[1])) {
             foreach ($match[1] as $idx => $toReplace) {
+                $sub = '';
+
+                // Note any sub-array offset required.
+                if (preg_match('/(\:\d+)/', $toReplace, $parts, PREG_OFFSET_CAPTURE)) {
+                    $sub = substr($parts[1][0], 1) - 1;
+                    $toReplace = str_replace($parts[1][0], '', $toReplace);
+                }
+
                 if (empty($iptc[$toReplace])) {
                     $replacement = '';
                 } else {
@@ -494,7 +502,11 @@ EOJS
                         $replacement = $this->createCategory($firstItem, $catData['type'], $catData['parent']);
                     } else {
                         if (in_array($toReplace, $arrayTypes)) {
-                            $replacement = join(',', $iptc[$toReplace]);
+                            if (is_numeric($sub) && !empty($iptc[$toReplace][$sub])) {
+                                $replacement = $iptc[$toReplace][$sub];
+                            } else {
+                                $replacement = join(',', $iptc[$toReplace]);
+                            }
                         } else {
                             $replacement = $iptc[$toReplace][0];
                         }
@@ -902,6 +914,19 @@ If you wish to combine field data or make your own content to be inserted into a
 If you wish to insert a particular field code within your custom text, specify its name in curly braces. For example: @{2#004}@ is Genre, @{2#090}@ is City and @{2#105}@ is Headline. See "Section 6 of the IPTC Spec":https://www.iptc.org/std/photometadata/specification/IPTC-PhotoMetadata#metadata-properties and look at the _IIM Spec_ values to get the codes. Simply pad the values to the right of the colon with zeroes to three digits and replace the colon with a hash (#) sign. So, for example, 'Creator' has an IIM Spec designator @2:80@. To import this value into your nominated field, use @{2#080}@.
 
 If you're unsure of the values, either a) inspect the browser page source code of the prefs panel and look at the values in one of the configuration item select lists, or b) check the plugin code - there's a function called @getIptcMap()@ which lists the main supported data fields and their values.
+
+For lists of values that are treated as arrays (Subcategories, Subject Reference, Keywords and Author Byline) it's possible to use custom values to extract individual entries instead of the entire set as a comma-separated list. To do this, append a colon and offset to the field code. For example, to extract just the third subcategory value, specify:
+
+bc. {2#020:3}
+
+Or the 6th Keyword:
+
+bc. {2#025:6}
+
+Note:
+
+* If the contents of the field at the given offset value is missing (e.g. no value, or set to 0), you will get _the entire field_ comma separated as if you hadn't used the offset. This allows you to manually edit the result later to remove the parts you don't want.
+* A single space character in the field is _not_ treated as "empty" so if you wish to skip the entry and have your Textpattern destination field appear blank, specify a single space in the image metadata.
 
 h2. Usage
 
