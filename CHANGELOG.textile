@@ -1,0 +1,22 @@
+h1. Changelog
+
+h2. 0.5.1 - 2019-09-10
+
+* Add support for extracting sub-array items.
+
+h2. 0.5.0 - 2019-09-06
+
+* Add support for custom values.
+
+h2. 0.4.0-beta - 2019-08-18
+
+* Permit disabling of automatic category creation.
+* Only treat cats as special if used in Txp cat fields.
+
+h2. 0.3.0-beta - 2019-08-16
+
+* Status only affected on insert, not upload.
+
+h2. 0.2.0-beta - 2019-08-16
+
+* Initial private beta

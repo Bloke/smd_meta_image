@@ -1,0 +1,147 @@
+h1. smd_meta_image
+
+Upload images and populate their metadata from IPTC header information. Very handy for people who run photoblog or image-heavy sites, or those who categorise images for inclusion in articles. If configured, the plugin will automatically create an article for each uploaded image.
+
+h2. Features
+
+* Map image IPTC fields to Textpattern image/article fields.
+* Articles may be created automatically based on embedded IPTC data.
+* Article/image categories may be created automatically if required.
+* Upload/replace images to update Textpattern metadata.
+
+h2. Installation / Uninstallation
+
+p(information). Requires Textpattern 4.7+
+
+"Download the plugin":#, paste the code into the Textpattern _Admin->Plugins_ panel, install and enable the plugin. For bug reports, please "raise an issue":#.
+
+To uninstall, delete the plugin from the _Admin->Plugins_ panel.
+
+h2. Configuration
+
+Visit the Admin->Prefs panel and click the Meta Image Import group to configure the plugin. There are three sections as follows:
+
+h3. General options
+
+*Article parent category*
+
+The parent category in your current article tree where all _new_ categories read in from the IPTC data will be created. If set to _Disable category creation_ then no categories will be created and assignment will only occur for those categories that already exist. If set to the empty (blank) option, new categories will be created at the root (top level).
+
+*Section*
+
+The Section in which articles will be created. If left blank, the Default Section (as defined in the Sections panel) will be used.
+
+h3. Image mapping
+
+One configuration item per Textpattern image field. Select an IPTC field from the list for each Textpattern field so that it may be mapped when images are uploaded.
+
+Leave any select list blank to indicate this field should be ignored - i.e. have its data set to whatever Textpattern usually assigns on image upload.
+
+If you leave the *Name* field blank, or the nominated IPTC field in the image is empty, Textpattern will use the filename as usual.
+
+h3. Article mapping
+
+As above, there is one configuration item per Textpattern article field. Select an IPTC field from the list for each Textpattern field so that it may be mapped when images are uploaded. Any fields you specify here will result in one article being created for every image.
+
+There are some special cases as follows:
+
+h4. Title
+
+This is the key field that ties your image to your article. If you don't map this field (i.e. set it blank) then no article will be created when you upload an image. This is handy as a "turn off article creation" switch that leaves all other fields intact, or for people who just want to map image data on import, and not create articles.
+
+Once set, it's a good idea not to alter it. If you do, the article won't be "found" again if you subsequently replace an existing image.
+
+h4. Article image
+
+This is set to the image ID of the uploaded image.
+
+h4. Section
+
+This is only set on article creation, _not_ altered when an image is replaced.
+
+If the Section is set in the plugin's general options, the nominated Section will be used when creating articles from each uploaded image. If the Section is left empty in the plugin's general options, the current _Default Publishing Section_ (as defined on the Sections panel) will be used when creating articles.
+
+h4. Status
+
+The value from your 'Default publication status' pref is used. The status is only set when images are first uploaded. It is _not_ updated when replacing images.
+
+h4. Keywords
+
+These are concatenated as a comma-separated list and updated when an image is replaced. The list will be truncated if they don't fit in the 255 char limit.
+
+h4. Posted date
+
+If assigned from the image Creation Date IPTC field, it behaves as follows:
+
+# It automatically adds the Creation Time IPTC field as well, to form a full date-time value.
+# It is only assigned at article creation time. If the image is replaced, the article posted date remains the same.
+# If the field cannot be read or is mangled then the upload date/time is used (a.k.a. 'now').
+# If the Posted date is not mapped, then the upload date/time is used as article creation datestamp.
+
+h4. Author/LastMod info
+
+This is always set on insert and update of its corresponding image. The current logged-in user is used, and the article's modification date is set to 'now'.
+
+h3. Category assignment
+
+Categories are treated differently depending on where (to which field) they are assigned. IPTC category fields are:
+
+* (2#012) Subject Reference
+* (2#015) Category
+* (2#020) Subcategory
+
+They will be treated like regular fields if they are assigned to any non-Category Textpattern field (e.g. custom fields). In these cases, single category values will be inserted as regular fields and category lists will be inserted as a comma-separated list.
+
+If, however, you assign one of the category fields to a Textpattern Category field, it behaves like this:
+
+h4. Image categories
+
+* If the category (or _first category_ if the nominated IPTC field represents a list) does not exist, it will be created as an image category.
+* If you have specified an existing Textpattern category in the Upload form, that will be used as the _parent_ of any created categories.
+* If any category already exists, no changes will be made to it.
+* If the nominated IPTC field is empty, the category used in the upload form will be assigned to the image as fallback.
+* If that's empty, no category will be assigned to the image.
+
+h4. Article categories
+
+* If the category (or _first category_ if the nominated IPTC field represents a list) does not exist, it will be created as an article category as long as the parent category is not set to _Disable category creation_.
+* New categories read from image data will be created beneath the parent category set in the plugin's general options. If the parent category is unset, new categories are assigned to the article root.
+* If a category already exists, its definition and parent remain the same - no changes are made, only category (re)assignment to the article is performed.
+
+h3. Custom values
+
+If you wish to combine field data or make your own content to be inserted into a field, choose the last _Custom value_ option from the configuration item list for any corresponding Textpattern field. A new input box will appear below the selector for you to type in the text you wish to be inserted into that field.
+
+If you wish to insert a particular field code within your custom text, specify its name in curly braces. For example: @{2#004}@ is Genre, @{2#090}@ is City and @{2#105}@ is Headline. See "Section 6 of the IPTC Spec":https://www.iptc.org/std/photometadata/specification/IPTC-PhotoMetadata#metadata-properties and look at the _IIM Spec_ values to get the codes. Simply pad the values to the right of the colon with zeroes to three digits and replace the colon with a hash (#) sign. So, for example, 'Creator' has an IIM Spec designator @2:80@. To import this value into your nominated field, use @{2#080}@.
+
+If you're unsure of the values, either a) inspect the browser page source code of the prefs panel and look at the values in one of the configuration item select lists, or b) check the plugin code - there's a function called @getIptcMap()@ which lists the main supported data fields and their values.
+
+For lists of values that are treated as arrays (Subcategories, Subject Reference, Keywords and Author Byline) it's possible to use custom values to extract individual entries instead of the entire set as a comma-separated list. To do this, append a colon and offset to the field code. For example, to extract just the third subcategory value, specify:
+
+bc. {2#020:3}
+
+Or the 6th Keyword:
+
+bc. {2#025:6}
+
+Note:
+
+* If the contents of the field at the given offset value is missing (e.g. no value, or set to 0), you will get _the entire field_ comma separated as if you hadn't used the offset. This allows you to manually edit the result later to remove the parts you don't want.
+* A single space character in the field is _not_ treated as "empty" so if you wish to skip the entry and have your Textpattern destination field appear blank, specify a single space in the image metadata.
+
+h2. Usage
+
+# Visit the Images panel.
+# Browse/drag one or more images to the upload field.
+# Optionally select a category for it (or under which its new categories will be created).
+# Ensure the *Parse IPTC data* checkbox is set.
+# Upload the images.
+
+Images will be uploaded, and have their metadata set according to the mapping rules set in the plugin preferences. If article mapping is configured, one article will be created per image too with the nominated data copied from the corresponding image's IPTC field into the article.
+
+h2. Caveats / known issues / other stuff
+
+* The custom field names in the Prefs panel are not translated and do not read the values for their names as defined in the CF prefs.
+* The 'Parse IPTC' checkbox is remembered after you have performed an upload. The same state is applied for new uploads and for replacements - it uses the same pref value.
+* The plugin plays nicely with smd_thumbnail.
+* Only a loose link between the image and its article is enforced after creation. If the Title remains unchanged and the Title mapping field is unchanged, updating an image will update the corresponding article data (with the exceptions noted above). But if you delete an image or delete an article, they are treated independently.
