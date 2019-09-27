@@ -1,0 +1,16 @@
+{
+  "name": "bloke/smd_meta_image",
+  "description": "A Textpattern CMS plugin for importing images using IPTC metadata to populate content.",
+  "keywords": ["textpattern", "plugin", "images", "metadata", "iptc", "upload", "import"],
+  "homepage": "https://github.com/bloke/smd_meta_image",
+  "license": "GPL-2.0",
+  "type": "textpattern-plugin",
+  "support": {
+    "issues": "https://github.com/bloke/smd_meta_image/issues",
+    "source": "https://github.com/bloke/smd_meta_image"
+  },
+  "require": {
+    "textpattern/lock": ">=4.7.0",
+    "textpattern/installer": "*"
+  }
+}
