@@ -342,9 +342,13 @@ EOJS
                             case $this->plugin_event . '_art_posted':
                                 if ($imgVal && ($val = $this->replaceIptc($imgVal, $iptc))) {
                                     if ($val) {
-                                        try {
-                                            $date = new DateTime($val);
-                                        } catch (Exception $e) {
+                                        if (strtotime($val) > 0) {
+                                            try {
+                                                $date = new DateTime($val);
+                                            } catch (Exception $e) {
+                                                $date = new DateTime();
+                                            }
+                                        } else {
                                             $date = new DateTime();
                                         }
 
