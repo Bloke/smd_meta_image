@@ -17,7 +17,7 @@ $plugin['name'] = 'smd_meta_image';
 // 1 = Plugin help is in raw HTML.  Not recommended.
 # $plugin['allow_html_help'] = 1;
 
-$plugin['version'] = '0.5.1';
+$plugin['version'] = '0.6.0';
 $plugin['author'] = 'Stef Dawson';
 $plugin['author_uri'] = 'https://stefdawson.com/';
 $plugin['description'] = 'A Textpattern CMS plugin for importing images using IPTC metadata to populate content.';
@@ -45,7 +45,7 @@ $plugin['type'] = '4';
 if (!defined('PLUGIN_HAS_PREFS')) define('PLUGIN_HAS_PREFS', 0x0001); // This plugin wants to receive "plugin_prefs.{$plugin['name']}" events
 if (!defined('PLUGIN_LIFECYCLE_NOTIFY')) define('PLUGIN_LIFECYCLE_NOTIFY', 0x0002); // This plugin wants to receive "plugin_lifecycle.{$plugin['name']}" events
 
-$plugin['flags'] = '2';
+$plugin['flags'] = '3';
 
 // Plugin 'textpack' is optional. It provides i18n strings to be used in conjunction with gTxt().
 // Syntax:
@@ -118,15 +118,24 @@ class smd_meta_image
     protected $plugin_event = 'smd_meta_image';
 
     /**
+     * The plugin's privileges.
+     *
+     * @var string
+     */
+    protected $privs = '1,2,3';
+
+    /**
      * Constructor to set up callbacks and environment.
      */
     public function __construct()
     {
-        add_privs($this->plugin_event, '1,2,3');
-        add_privs('prefs.'.$this->plugin_event.'.'.$this->plugin_event.'_choices', '1,2,3');
-        add_privs('prefs.'.$this->plugin_event.'.'.$this->plugin_event.'_map_01img', '1,2,3');
-        add_privs('prefs.'.$this->plugin_event.'.'.$this->plugin_event.'_map_02art', '1,2,3');
+        add_privs($this->plugin_event, $this->privs);
+        add_privs('plugin_prefs.'.$this->plugin_event, $this->privs);
+        add_privs('prefs.'.$this->plugin_event.'.'.$this->plugin_event.'_choices', $this->privs);
+        add_privs('prefs.'.$this->plugin_event.'.'.$this->plugin_event.'_map_01img', $this->privs);
+        add_privs('prefs.'.$this->plugin_event.'.'.$this->plugin_event.'_map_02art', $this->privs);
         register_callback(array($this, 'prefs'), 'prefs', '', 1);
+        register_callback(array($this, 'options'), 'plugin_prefs.'.$this->plugin_event);
         register_callback(array($this, 'welcome'), 'plugin_lifecycle.' . $this->plugin_event);
         register_callback(array($this, 'render_ui'), 'image_ui', 'upload_form');
         register_callback(array($this, 'inject_head'), 'admin_side', 'head_end');
@@ -567,6 +576,18 @@ EOJS
 
             }
         }
+    }
+
+    /**
+     * Redirects to the preferences panel
+     */
+    public function options()
+    {
+        header('Location: ?event=prefs#prefs_group_'.$this->plugin_event);
+        echo
+            '<p id="message">'.n.
+            '   <a href="?event=prefs#prefs_group_'.$this->plugin_event.'">'.gTxt('continue').'</a>'.n.
+            '</p>';
     }
 
     /**
