@@ -701,7 +701,7 @@ EOJS
             'level'    => 0,
         );
 
-        $options += getTree('root', 'article');
+        $options = array_merge($options, getTree('root', 'article'));
 
         return treeSelectInput($key, $options, $val, $key);
     }
