@@ -1,5 +1,12 @@
 h1. Changelog
 
+h2. 0.6.0 - 2020-07-13
+
+* Add support for textfilters
+* Add Options link to Plugins panel
+* Guard against invalid old dates prior to the unix epoch
+* Preserve all categories in prefs dropdown.
+
 h2. 0.5.1 - 2019-09-10
 
 * Add support for extracting sub-array items.

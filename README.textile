@@ -13,7 +13,7 @@ h2. Installation / Uninstallation
 
 p(information). Requires Textpattern 4.7+
 
-"Download the plugin":#, paste the code into the Textpattern _Admin->Plugins_ panel, install and enable the plugin. For bug reports, please "raise an issue":#.
+"Download the plugin":https://github.com/bloke/smd_meta_image/releases, paste the code into the Textpattern _Admin->Plugins_ panel, install and enable the plugin. For bug reports, please "raise an issue":https://github.com/bloke/smd_meta_image/issues.
 
 To uninstall, delete the plugin from the _Admin->Plugins_ panel.
 
@@ -30,6 +30,14 @@ The parent category in your current article tree where all _new_ categories read
 *Section*
 
 The Section in which articles will be created. If left blank, the Default Section (as defined in the Sections panel) will be used.
+
+*Textfilter*
+
+Choose one of the installed Textfilters that you wish to apply to certain fields. Note that only one filter can be active for all chosen fields.
+
+*Apply textfilter to these fields*
+
+Select one or more article fields upon which to apply the chosen Textfilter. If that article field is mapped to an incoming IPTC field, the content will be passed through the filter. In the case of Title, Body and Excerpt, content will be stored in the database in both raw and processed forms. For custom fields, only the processed content will be stored, owing to the (current) lack of storage support.
 
 h3. Image mapping
 

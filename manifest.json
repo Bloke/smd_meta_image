@@ -1,11 +1,11 @@
 {
   "name": "smd_meta_image",
   "description": "A Textpattern CMS plugin for importing images using IPTC metadata to populate content",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "type": 4,
   "author": "Stef Dawson",
   "author_uri": "https://stefdawson.com/",
   "order": 5,
-  "flags": 2,
+  "flags": 3,
   "help": {"file" : ["./README.textile"]}
 }
