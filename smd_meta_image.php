@@ -17,7 +17,7 @@ $plugin['name'] = 'smd_meta_image';
 // 1 = Plugin help is in raw HTML.  Not recommended.
 # $plugin['allow_html_help'] = 1;
 
-$plugin['version'] = '0.6.0';
+$plugin['version'] = '0.6.1';
 $plugin['author'] = 'Stef Dawson';
 $plugin['author_uri'] = 'https://stefdawson.com/';
 $plugin['description'] = 'A Textpattern CMS plugin for importing images using IPTC metadata to populate content.';
@@ -336,7 +336,7 @@ EOJS
 
                                     if ($safeVal) {
                                         $artmatch = "Title = '$safeVal'";
-                                        $filtered = doSlash($this->applyFilter($safeKey, $safeVal));
+                                        $filtered = doSlash($this->applyFilter($safeKey, $val));
                                         $safeKeyHtml = $safeKey .'_html';
 
                                         $artpayload[] = "url_title = '" . stripSpace(trim($safeVal), 1) . "'";
@@ -368,7 +368,7 @@ EOJS
                                 if ($imgVal && ($val = $this->replaceIptc($imgVal, $iptc))) {
                                     if ($val) {
                                         $safeVal = doSlash($val);
-                                        $filtered = doSlash($this->applyFilter($safeKey, $safeVal));
+                                        $filtered = doSlash($this->applyFilter($safeKey, $val));
 
                                         $safeKeyHtml = $safeKey .'_html';
                                         $artpayload[] = "$safeKey = '$safeVal'";
@@ -604,15 +604,6 @@ EOJS
         }
 
         if (in_array($key, $fields)) {
-            // Normalize line endings. Note 'real' newlines split the code onto the next line.
-            // @todo Is there a preg_replace() that could do this in one? \R is supposed to
-            // represent all newline sequences.
-            $val = str_replace('\r\n', '
-', $val);
-            $val = str_replace('\r', '
-', $val);
-            $val = str_replace('\n', '
-', $val);
             // Filter.
             $out = $textfilter->filter(
                 $filterInUse,
