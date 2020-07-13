@@ -78,6 +78,8 @@ smd_meta_image_art_keywords => Keywords
 smd_meta_image_art_posted => Posted date
 smd_meta_image_art_section => Section
 smd_meta_image_art_title => Title
+smd_meta_image_textfilter => Textfilter
+smd_meta_image_textfilter_fields => Apply textfilter to these fields
 EOT;
 
 if (!defined('txpinterface'))
@@ -334,7 +336,11 @@ EOJS
 
                                     if ($safeVal) {
                                         $artmatch = "Title = '$safeVal'";
+                                        $filtered = doSlash($this->applyFilter($safeKey, $safeVal));
+                                        $safeKeyHtml = $safeKey .'_html';
+
                                         $artpayload[] = "url_title = '" . stripSpace(trim($safeVal), 1) . "'";
+                                        $artpayload[] = "$safeKeyHtml = '$filtered'";
                                     }
                                 }
 
@@ -362,9 +368,11 @@ EOJS
                                 if ($imgVal && ($val = $this->replaceIptc($imgVal, $iptc))) {
                                     if ($val) {
                                         $safeVal = doSlash($val);
+                                        $filtered = doSlash($this->applyFilter($safeKey, $safeVal));
+
                                         $safeKeyHtml = $safeKey .'_html';
                                         $artpayload[] = "$safeKey = '$safeVal'";
-                                        $artpayload[] = "$safeKeyHtml = '$safeVal'";
+                                        $artpayload[] = "$safeKeyHtml = '$filtered'";
                                     }
                                 }
 
@@ -372,7 +380,7 @@ EOJS
                             default:
                                 if ($imgVal && ($val = $this->replaceIptc($imgVal, $iptc))) {
                                     if ($val) {
-                                        $safeVal = doSlash($val);
+                                        $safeVal = doSlash($this->applyFilter($safeKey, $val));
                                         $artpayload[] = "$safeKey = '$safeVal'";
                                     }
                                 }
@@ -569,6 +577,58 @@ EOJS
     }
 
     /**
+     * Apply the current textfilter to the given field and raw value
+     *
+     * @param  string $key Field upon which to apply the filter
+     * @param  string $val Raw content to be passed through the filter
+     * @return string
+     */
+    protected function applyFilter($key, $val)
+    {
+        static $textfilter = null;
+        static $filterInUse = null;
+        static $fields = null;
+
+        $out = $val;
+
+        if ($textfilter === null) {
+            $textfilter = Txp::get('\Textpattern\Textfilter\Registry');
+        }
+
+        if ($filterInUse === null) {
+            $filterInUse = get_pref('smd_meta_image_textfilter', null);
+        }
+
+        if ($fields === null) {
+            $fields = do_list(get_pref('smd_meta_image_textfilter_fields', null));
+        }
+
+        if (in_array($key, $fields)) {
+            // Normalize line endings. Note 'real' newlines split the code onto the next line.
+            // @todo Is there a preg_replace() that could do this in one? \R is supposed to
+            // represent all newline sequences.
+            $val = str_replace('\r\n', '
+', $val);
+            $val = str_replace('\r', '
+', $val);
+            $val = str_replace('\n', '
+', $val);
+            // Filter.
+            $out = $textfilter->filter(
+                $filterInUse,
+                $val,
+                array(
+                    'field'   => $key,
+                    'options' => array('lite' => false),
+                    'data'    => $val,
+                )
+            );
+        }
+
+        return $out;
+    }
+
+    /**
      * Prefs panel - create plugin key-values if they don't exist
      */
     public function prefs() {
@@ -726,13 +786,56 @@ EOJS
             $val = $obj['default'];
         } elseif ($current === '') {
             $val = '';
+        } elseif ((strpos($val, ',') !== false) || $key === 'smd_meta_image_textfilter_fields') {
+            $val = ($val) ? do_list($val) : array();
         } elseif (!array_key_exists($current, $allOpts)) {
             $val = 'custom';
         }
 
-        $thisID = $obj['event'];
+        if ($key === 'smd_meta_image_textfilter_fields' && !is_array($val)) {
+            $val = array($val);
+        }
 
         return $this->getIptcMapList($key, $val);
+    }
+
+    /**
+     * Render a list of available textfilters
+     *
+     * @param  string $key The preference key being displayed
+     * @param  string $val The current preference value
+     * @return string      HTML
+     */
+    public function textfilterOpts($key, $val) {
+        $textfilter_opts = Txp::get('\Textpattern\Textfilter\Registry')->getMap();
+
+        return selectInput($key, $textfilter_opts, $val, false, false, $key);
+    }
+
+    /**
+     * Render a list of available fields to textfilter
+     *
+     * @param  string $key The preference key being displayed
+     * @param  string $val The current preference value
+     * @return string      HTML
+     */
+    public function fieldOpts($key, $val) {
+        $fieldOpts = array(
+            'title'   => gTxt('title'),
+            'body'    => gTxt('body'),
+            'excerpt' => gTxt('excerpt'),
+        );
+
+        $cfs = getCustomFields();
+
+        foreach ($cfs as $i => $cf_name) {
+            $var = "custom_$i";
+            $fieldOpts[$var] = $cf_name;
+        }
+
+        $val = ($val) ? do_list($val) : array();
+
+        return selectInput($key, $fieldOpts, $val, true, false, $key);
     }
 
     /**
@@ -782,6 +885,24 @@ EOJS
                 'type'       => PREF_PLUGIN,
                 'position'   => 20,
                 'default'    => '',
+                'event'      => $this->plugin_event . '.'. $this->plugin_event . '_choices',
+                'visibility' => PREF_GLOBAL,
+            );
+
+        $plugPrefs['smd_meta_image_textfilter'] = array(
+                'html'       => $this->plugin_event . '->textfilterOpts',
+                'type'       => PREF_PLUGIN,
+                'position'   => 30,
+                'default'    => USE_TEXTILE,
+                'event'      => $this->plugin_event . '.'. $this->plugin_event . '_choices',
+                'visibility' => PREF_GLOBAL,
+            );
+
+        $plugPrefs['smd_meta_image_textfilter_fields'] = array(
+                'html'       => $this->plugin_event . '->fieldOpts',
+                'type'       => PREF_PLUGIN,
+                'position'   => 40,
+                'default'    => 'Body,Excerpt',
                 'event'      => $this->plugin_event . '.'. $this->plugin_event . '_choices',
                 'visibility' => PREF_GLOBAL,
             );
@@ -837,7 +958,7 @@ h2. Installation / Uninstallation
 
 p(information). Requires Textpattern 4.7+
 
-"Download the plugin":#, paste the code into the Textpattern _Admin->Plugins_ panel, install and enable the plugin. For bug reports, please "raise an issue":#.
+"Download the plugin":https://github.com/bloke/smd_meta_image/releases, paste the code into the Textpattern _Admin->Plugins_ panel, install and enable the plugin. For bug reports, please "raise an issue":https://github.com/bloke/smd_meta_image/issues.
 
 To uninstall, delete the plugin from the _Admin->Plugins_ panel.
 
@@ -854,6 +975,14 @@ The parent category in your current article tree where all _new_ categories read
 *Section*
 
 The Section in which articles will be created. If left blank, the Default Section (as defined in the Sections panel) will be used.
+
+*Textfilter*
+
+Choose one of the installed Textfilters that you wish to apply to certain fields. Note that only one filter can be active for all chosen fields.
+
+*Apply textfilter to these fields*
+
+Select one or more article fields upon which to apply the chosen Textfilter. If that article field is mapped to an incoming IPTC field, the content will be passed through the filter. In the case of Title, Body and Excerpt, content will be stored in the database in both raw and processed forms. For custom fields, only the processed content will be stored, owing to the (current) lack of storage support.
 
 h3. Image mapping
 
